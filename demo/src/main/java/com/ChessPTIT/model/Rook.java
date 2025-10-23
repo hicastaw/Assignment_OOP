@@ -1,5 +1,6 @@
 package com.ChessPTIT.model;
 
+import com.ChessPTIT.service.GameService; // <-- THÊM IMPORT NÀY
 import java.util.ArrayList;
 import java.util.List;
 
@@ -12,13 +13,14 @@ public class Rook extends Piece {
     }
 
     @Override
-    public List<Position> getValidMoves(Board board, Position currentPosition) {
+    // THAY ĐỔI: Thêm GameService vào chữ ký phương thức
+    public List<Position> getValidMoves(Board board, Position currentPosition, GameService gameService) {
         List<Position> moves = new ArrayList<>();
         int currentRow = currentPosition.row();
         int currentCol = currentPosition.col();
 
         // Mảng hướng đi: lên, xuống, trái, phải
-        int[][] directions = {{-1, 0}, {1, 0}, {0, -1}, {0, 1}};
+        int[][] directions = { { -1, 0 }, { 1, 0 }, { 0, -1 }, { 0, 1 } };
 
         for (int[] dir : directions) {
             int nextRow = currentRow + dir[0];

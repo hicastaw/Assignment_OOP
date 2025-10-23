@@ -34,6 +34,7 @@ public class MainFrame extends JFrame implements PanelSwitcher {
         add(mainPanel);
         pack();
         setLocationRelativeTo(null);
+
     }
 
     @Override
@@ -41,13 +42,11 @@ public class MainFrame extends JFrame implements PanelSwitcher {
         cardLayout.show(mainPanel, panelName);
 
         if (panelName.equals(GAME_PANEL)) {
-            // Khi vào game, reset lại trạng thái và vẽ lại bàn cờ
-            // (Phần này có thể cần khi bạn thêm tính năng "Chơi lại")
+            gamePanel.resetGamePanel(); // Reset panel game trước khi vẽ lại
             gamePanel.redrawBoard();
             gamePanel.updateStatus();
         }
-
-        // THAY ĐỔI 2: Khi vào màn hình lịch sử, ra lệnh cho nó tải dữ liệu mới
+        // KHI CHUYỂN SANG MÀN HÌNH LỊCH SỬ, HÃY TẢI DỮ LIỆU MỚI
         if (panelName.equals(HISTORY_PANEL)) {
             historyPanel.loadAndDisplayHistory();
         }

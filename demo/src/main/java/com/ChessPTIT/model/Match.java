@@ -10,24 +10,17 @@ public class Match {
     private String result;
     private List<String> moves;
 
-    // Bạn sẽ tạo constructor và các phương thức getters/setters cho các thuộc tính
-    // này
-    // (IDE có thể tự động tạo giúp bạn: Chuột phải -> Generate -> ...)
-
-    // Thêm constructor này vào lớp Match.java
     public Match(int matchId, String playerWhiteName, String playerBlackName, String result) {
         this.matchId = matchId;
         this.playerWhiteName = playerWhiteName;
         this.playerBlackName = playerBlackName;
         this.result = result;
-        this.moves = new ArrayList<>(); // Khởi tạo rỗng
+        this.moves = new ArrayList<>();
     }
 
-    // Setters
     public void setMatchId(int matchId) {
         this.matchId = matchId;
     }
-
     public void setPlayerWhiteName(String playerWhiteName) {
         this.playerWhiteName = playerWhiteName;
     }

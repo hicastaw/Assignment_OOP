@@ -1,5 +1,6 @@
 package com.ChessPTIT.model;
 
+import com.ChessPTIT.service.GameService; // <-- THÊM IMPORT NÀY
 import java.util.List;
 
 public abstract class Piece {
@@ -12,7 +13,10 @@ public abstract class Piece {
     public PieceColor getColor() {
         return color;
     }
-    
-    // Phương thức trừu tượng, buộc các lớp con phải định nghĩa logic di chuyển
-    public abstract List<Position> getValidMoves(Board board, Position currentPosition);
+
+    /**
+     * Phương thức trừu tượng, buộc các lớp con phải định nghĩa logic di chuyển.
+     * Đã được cập nhật để nhận thêm GameService làm tham số.
+     */
+    public abstract List<Position> getValidMoves(Board board, Position currentPosition, GameService gameService);
 }

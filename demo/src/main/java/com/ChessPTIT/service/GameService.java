@@ -1,21 +1,10 @@
 package com.ChessPTIT.service;
 
-import java.util.ArrayList;
-import java.util.List;
-
 import com.ChessPTIT.db.MatchDAO;
 import com.ChessPTIT.db.MoveDAO;
-// Import tất cả các lớp trong model
-import com.ChessPTIT.model.Board;
-import com.ChessPTIT.model.PieceColor;
-import com.ChessPTIT.model.King;
-import com.ChessPTIT.model.Piece;
-import com.ChessPTIT.model.PieceColor;
-import com.ChessPTIT.model.Player;
-import com.ChessPTIT.model.Position;
-import com.ChessPTIT.model.Rook;
-
-// Lỗi 1: Đã xóa "import javax.swing.text.Position;" và đảm bảo import đúng lớp Position từ model
+import com.ChessPTIT.model.*;
+import java.util.ArrayList;
+import java.util.List;
 
 public class GameService {
 
@@ -29,13 +18,10 @@ public class GameService {
     private MatchDAO matchDAO;
     private MoveDAO moveDAO;
     private GameState gameState;
+    private Position enPassantTargetSquare;
 
-    // Enum để quản lý các trạng thái của game
     public enum GameState {
-        IN_PROGRESS,
-        CHECK,
-        CHECKMATE,
-        STALEMATE
+        IN_PROGRESS, CHECK, CHECKMATE, STALEMATE, PAWN_PROMOTION
     }
 
     public GameService() {
@@ -53,11 +39,8 @@ public class GameService {
         this.capturedPieces = new ArrayList<>();
         this.moveHistory = new ArrayList<>();
         this.gameState = GameState.IN_PROGRESS;
-
-        // Bước cuối: Đã kích hoạt dòng code này
+        this.enPassantTargetSquare = null;
         this.currentMatchId = matchDAO.createNewMatch(player1Name, player2Name);
-        System.out.println(
-                "New game started (ID: " + this.currentMatchId + ") between " + player1Name + " and " + player2Name);
     }
 
     public boolean handleMove(Position from, Position to) {
@@ -67,76 +50,205 @@ public class GameService {
             return false;
         }
 
-        List<Position> validMoves = pieceToMove.getValidMoves(board, from);
+        // SỬA LỖI: Lấy danh sách nước đi hợp lệ TRƯỚC KHI reset enPassantTargetSquare
+        List<Position> validMoves = pieceToMove.getValidMoves(board, from, this);
         if (!validMoves.contains(to)) {
             return false;
         }
+
+        // SỬA LỖI: Lưu lại giá trị en passant của lượt này trước khi nó bị thay đổi
+        Position previousEnPassantTarget = this.enPassantTargetSquare;
+
+        // SỬA LỖI: Reset ô en passant ngay sau khi đã kiểm tra nước đi hợp lệ
+        this.enPassantTargetSquare = null;
 
         if (moveResultsInCheck(from, to, currentPlayer)) {
             return false;
         }
 
-        Piece capturedPiece = board.getPieceAt(to);
-        if (capturedPiece != null) {
-            capturedPieces.add(capturedPiece);
+        boolean isCapture = board.getPieceAt(to) != null
+                || (pieceToMove instanceof Pawn && to.equals(previousEnPassantTarget));
+
+        // Xử lý di chuyển
+        if (pieceToMove instanceof King && isCastlingMove(from, to)) {
+            if (canCastle((King) pieceToMove, from, to)) {
+                performCastling(from, to);
+            } else {
+                return false;
+            }
+        } else if (pieceToMove instanceof Pawn && to.equals(previousEnPassantTarget)) {
+            performEnPassant(from, to);
+        } else {
+            performNormalMove(from, to);
         }
 
-        board.movePiece(from, to);
+        // Tạo ký hiệu nước đi cơ bản
+        String notation = convertToNotation(pieceToMove, from, to, isCapture);
 
-        if (pieceToMove instanceof Rook)
-            ((Rook) pieceToMove).setHasMoved(true);
-        if (pieceToMove instanceof King)
-            ((King) pieceToMove).setHasMoved(true);
+        // Thiết lập ô enPassant cho lượt tiếp theo nếu Tốt đi 2 ô
+        if (pieceToMove instanceof Pawn && Math.abs(from.row() - to.row()) == 2) {
+            int direction = (pieceToMove.getColor() == PieceColor.WHITE) ? -1 : 1;
+            this.enPassantTargetSquare = new Position(from.row() + direction, from.col());
+        }
 
-        moveHistory.add(from.toString() + "-" + to.toString());
+        // Xử lý Phong cấp
+        if (pieceToMove instanceof Pawn) {
+            boolean isPromotion = (pieceToMove.getColor() == PieceColor.WHITE && to.row() == 0) ||
+                    (pieceToMove.getColor() == PieceColor.BLACK && to.row() == 7);
+            if (isPromotion) {
+                this.gameState = GameState.PAWN_PROMOTION;
+                moveHistory.add(notation);
+                return true;
+            }
+        }
 
-        currentPlayer = (currentPlayer == PieceColor.WHITE) ? PieceColor.BLACK : PieceColor.WHITE;
+        // Chuyển lượt và cập nhật trạng thái game
+        switchPlayer();
 
-        updateGameState();
+        // Thêm ký hiệu chiếu/chiếu bí vào nước đi
+        if (gameState == GameState.CHECKMATE) {
+            notation += "#";
+        } else if (gameState == GameState.CHECK) {
+            notation += "+";
+        }
+
+        moveHistory.add(notation);
 
         return true;
     }
 
+    // ... các phương thức còn lại giữ nguyên như phiên bản hoàn chỉnh trước đó ...
+
+    public void promotePawn(Position position, String choice) {
+        PieceColor promotionColor = board.getPieceAt(position).getColor();
+        Piece newPiece;
+        switch (choice.toUpperCase()) {
+            case "QUEEN":
+                newPiece = new Queen(promotionColor);
+                break;
+            case "ROOK":
+                newPiece = new Rook(promotionColor);
+                break;
+            case "BISHOP":
+                newPiece = new Bishop(promotionColor);
+                break;
+            case "KNIGHT":
+                newPiece = new Knight(promotionColor);
+                break;
+            default:
+                newPiece = new Queen(promotionColor);
+        }
+        board.setPieceAt(position, newPiece);
+        if (!moveHistory.isEmpty()) {
+            int lastMoveIndex = moveHistory.size() - 1;
+            String lastMove = moveHistory.get(lastMoveIndex);
+            moveHistory.set(lastMoveIndex, lastMove + "=" + choice.toUpperCase().charAt(0));
+        }
+        switchPlayer();
+        if (!moveHistory.isEmpty()) {
+            int lastMoveIndex = moveHistory.size() - 1;
+            String lastMove = moveHistory.get(lastMoveIndex);
+            if (gameState == GameState.CHECKMATE) {
+                moveHistory.set(lastMoveIndex, lastMove + "#");
+            } else if (gameState == GameState.CHECK) {
+                moveHistory.set(lastMoveIndex, lastMove + "+");
+            }
+        }
+    }
+
+    private void performNormalMove(Position from, Position to) {
+        Piece pieceToMove = board.getPieceAt(from);
+        Piece capturedPiece = board.getPieceAt(to);
+        if (capturedPiece != null) {
+            capturedPieces.add(capturedPiece);
+        }
+        board.movePiece(from, to);
+        updateHasMovedFlag(pieceToMove);
+    }
+
+    private void performCastling(Position kingFrom, Position kingTo) {
+        board.movePiece(kingFrom, kingTo);
+        Position rookFrom, rookTo;
+        if (kingTo.col() == 6) {
+            rookFrom = new Position(kingFrom.row(), 7);
+            rookTo = new Position(kingFrom.row(), 5);
+        } else {
+            rookFrom = new Position(kingFrom.row(), 0);
+            rookTo = new Position(kingFrom.row(), 3);
+        }
+        Piece rook = board.getPieceAt(rookFrom);
+        board.movePiece(rookFrom, rookTo);
+        updateHasMovedFlag(board.getPieceAt(kingTo));
+        updateHasMovedFlag(rook);
+    }
+
+    private void performEnPassant(Position from, Position to) {
+        Piece pieceToMove = board.getPieceAt(from);
+        int capturedPawnRow = (pieceToMove.getColor() == PieceColor.WHITE) ? to.row() + 1 : to.row() - 1;
+        Position capturedPawnPos = new Position(capturedPawnRow, to.col());
+        Piece capturedPiece = board.getPieceAt(capturedPawnPos);
+        if (capturedPiece != null) {
+            capturedPieces.add(capturedPiece);
+        }
+        board.movePiece(from, to);
+        board.setPieceAt(capturedPawnPos, null);
+    }
+
+    private void updateHasMovedFlag(Piece piece) {
+        if (piece instanceof Rook)
+            ((Rook) piece).setHasMoved(true);
+        if (piece instanceof King)
+            ((King) piece).setHasMoved(true);
+    }
+
+    private void switchPlayer() {
+        currentPlayer = (currentPlayer == PieceColor.WHITE) ? PieceColor.BLACK : PieceColor.WHITE;
+        updateGameState();
+    }
+
     private void updateGameState() {
-        PieceColor opponentColor = (currentPlayer == PieceColor.WHITE) ? PieceColor.BLACK : PieceColor.WHITE;
         boolean isInCheck = isKingInCheck(currentPlayer);
-
-        List<Position> allPossibleMoves = getAllPossibleMoves(currentPlayer);
-
-        if (allPossibleMoves.isEmpty()) {
+        List<Position> allLegalMoves = getAllLegalMoves(currentPlayer);
+        if (allLegalMoves.isEmpty()) {
             if (isInCheck) {
                 this.gameState = GameState.CHECKMATE;
-                String result = (opponentColor == PieceColor.WHITE ? "White" : "Black") + " wins by Checkmate";
-                System.out.println("CHECKMATE! " + opponentColor + " wins!");
-                endGame(result);
+                String winner = (currentPlayer == PieceColor.WHITE) ? "Black" : "White";
+                endGame(winner + " wins by Checkmate");
             } else {
                 this.gameState = GameState.STALEMATE;
-                System.out.println("STALEMATE! It's a draw.");
                 endGame("Draw by Stalemate");
             }
         } else if (isInCheck) {
             this.gameState = GameState.CHECK;
-            System.out.println(currentPlayer + " is in CHECK!");
         } else {
             this.gameState = GameState.IN_PROGRESS;
         }
     }
 
-    // Lỗi 2: Đã thêm phương thức endGame bị thiếu
-    /**
-     * Xử lý việc kết thúc ván đấu và lưu kết quả vào database.
-     * 
-     * @param result Chuỗi mô tả kết quả cuối cùng của ván đấu.
-     */
     private void endGame(String result) {
-        System.out.println("Game Over. Result: " + result);
-        if (currentMatchId > 0) { // Đảm bảo ID ván đấu hợp lệ
-            // 1. Cập nhật kết quả cuối cùng trong bảng `matches`
+        if (currentMatchId > 0) {
             matchDAO.updateMatchResult(currentMatchId, result);
-            // 2. Lưu lại toàn bộ các nước đi vào bảng `moves`
             moveDAO.saveMovesForMatch(currentMatchId, moveHistory);
-            System.out.println("Match (ID: " + currentMatchId + ") and its moves have been saved to the database.");
         }
+    }
+
+    private String convertToNotation(Piece piece, Position from, Position to, boolean isCapture) {
+        if (piece instanceof King && Math.abs(from.col() - to.col()) == 2) {
+            return (to.col() == 6) ? "0-0" : "0-0-0";
+        }
+        StringBuilder notation = new StringBuilder();
+        if (!(piece instanceof Pawn)) {
+            String pieceName = piece.getClass().getSimpleName();
+            notation.append(pieceName.equals("Knight") ? "N" : pieceName.charAt(0));
+        } else if (isCapture) {
+            notation.append((char) ('a' + from.col()));
+        }
+        if (isCapture) {
+            notation.append("x");
+        }
+        notation.append((char) ('a' + to.col()));
+        notation.append(8 - to.row());
+        return notation.toString();
     }
 
     private boolean moveResultsInCheck(Position from, Position to, PieceColor playerColor) {
@@ -148,11 +260,113 @@ public class GameService {
     private boolean isKingInCheckOnBoard(Board boardToCheck, PieceColor kingColor) {
         Position kingPosition = findKingPosition(boardToCheck, kingColor);
         if (kingPosition == null)
-            return true;
-
+            return false;
         PieceColor opponentColor = (kingColor == PieceColor.WHITE) ? PieceColor.BLACK : PieceColor.WHITE;
-        List<Position> opponentMoves = getAllPossibleMovesOnBoard(boardToCheck, opponentColor);
+        List<Position> opponentMoves = getAllPossibleRawMovesOnBoard(boardToCheck, opponentColor);
         return opponentMoves.contains(kingPosition);
+    }
+
+    private boolean isCastlingMove(Position from, Position to) {
+        return board.getPieceAt(from) instanceof King && Math.abs(from.col() - to.col()) == 2;
+    }
+
+    private boolean canCastle(King king, Position from, Position to) {
+        if (isKingInCheck(king.getColor()))
+            return false;
+        int direction = to.col() > from.col() ? 1 : -1;
+        Position passingSquare = new Position(from.row(), from.col() + direction);
+        return !isSquareAttacked(passingSquare, king.getColor()) && !isSquareAttacked(to, king.getColor());
+    }
+
+    private boolean isSquareAttacked(Position square, PieceColor playerColor) {
+        PieceColor opponentColor = (playerColor == PieceColor.WHITE) ? PieceColor.BLACK : PieceColor.WHITE;
+        List<Position> opponentMoves = getAllPossibleRawMovesOnBoard(board, opponentColor);
+        return opponentMoves.contains(square);
+    }
+
+    public boolean isKingInCheck(PieceColor kingColor) {
+        return isKingInCheckOnBoard(this.board, kingColor);
+    }
+
+    private List<Position> getAllLegalMoves(PieceColor playerColor) {
+        List<Position> allLegalMoves = new ArrayList<>();
+        for (int r = 0; r < 8; r++) {
+            for (int c = 0; c < 8; c++) {
+                Position from = new Position(r, c);
+                Piece p = board.getPieceAt(from);
+                if (p != null && p.getColor() == playerColor) {
+                    List<Position> movesForPiece = p.getValidMoves(board, from, this);
+                    for (Position to : movesForPiece) {
+                        if (!moveResultsInCheck(from, to, playerColor)) {
+                            allLegalMoves.add(to);
+                        }
+                    }
+                }
+            }
+        }
+        return allLegalMoves;
+    }
+
+    private List<Position> getAllPossibleRawMovesOnBoard(Board board, PieceColor playerColor) {
+        List<Position> allMoves = new ArrayList<>();
+        for (int r = 0; r < 8; r++) {
+            for (int c = 0; c < 8; c++) {
+                Position pos = new Position(r, c);
+                Piece p = board.getPieceAt(pos);
+                if (p != null && p.getColor() == playerColor) {
+                    allMoves.addAll(p.getValidMoves(board, pos, this));
+                }
+            }
+        }
+        return allMoves;
+    }
+
+    private Position findKingPosition(Board board, PieceColor kingColor) {
+        for (int r = 0; r < 8; r++) {
+            for (int c = 0; c < 8; c++) {
+                Position pos = new Position(r, c);
+                Piece p = board.getPieceAt(pos);
+                if (p instanceof King && p.getColor() == kingColor) {
+                    return pos;
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Lấy danh sách tất cả các nước đi hợp lệ thực sự cho một quân cờ tại một vị
+     * trí.
+     * Phương thức này sẽ lọc ra các nước đi tự làm Vua của mình bị chiếu.
+     * 
+     * @param from Vị trí của quân cờ cần kiểm tra.
+     * @return Một danh sách các nước đi hợp lệ.
+     */
+    public List<Position> getLegalMovesForPiece(Position from) {
+        List<Position> legalMoves = new ArrayList<>();
+        Piece piece = board.getPieceAt(from);
+        if (piece == null || piece.getColor() != currentPlayer) {
+            return legalMoves; // Trả về danh sách rỗng nếu không có quân cờ hoặc không phải lượt
+        }
+
+        // Lấy danh sách các nước đi tiềm năng
+        List<Position> potentialMoves = piece.getValidMoves(board, from, this);
+
+        // Lọc ra những nước đi không làm Vua bị chiếu
+        for (Position to : potentialMoves) {
+            // Xử lý riêng cho nhập thành vì nó phức tạp hơn
+            if (piece instanceof King && isCastlingMove(from, to)) {
+                if (canCastle((King) piece, from, to)) {
+                    legalMoves.add(to);
+                }
+            }
+            // Xử lý các nước đi còn lại
+            else if (!moveResultsInCheck(from, to, currentPlayer)) {
+                legalMoves.add(to);
+            }
+        }
+
+        return legalMoves;
     }
 
     public Board getBoard() {
@@ -171,53 +385,7 @@ public class GameService {
         return this.gameState;
     }
 
-    public boolean isKingInCheck(PieceColor kingColor) {
-        return isKingInCheckOnBoard(this.board, kingColor);
-    }
-
-    private Position findKingPosition(Board board, PieceColor kingColor) {
-        for (int r = 0; r < 8; r++) {
-            for (int c = 0; c < 8; c++) {
-                Position pos = new Position(r, c);
-                Piece p = board.getPieceAt(pos);
-                if (p instanceof King && p.getColor() == kingColor) {
-                    return pos;
-                }
-            }
-        }
-        return null;
-    }
-
-    private List<Position> getAllPossibleMovesOnBoard(Board board, PieceColor playerColor) {
-        List<Position> allMoves = new ArrayList<>();
-        for (int r = 0; r < 8; r++) {
-            for (int c = 0; c < 8; c++) {
-                Position pos = new Position(r, c);
-                Piece p = board.getPieceAt(pos);
-                if (p != null && p.getColor() == playerColor) {
-                    allMoves.addAll(p.getValidMoves(board, pos));
-                }
-            }
-        }
-        return allMoves;
-    }
-
-    private List<Position> getAllPossibleMoves(PieceColor playerColor) {
-        List<Position> allLegalMoves = new ArrayList<>();
-        for (int r = 0; r < 8; r++) {
-            for (int c = 0; c < 8; c++) {
-                Position from = new Position(r, c);
-                Piece p = board.getPieceAt(from);
-                if (p != null && p.getColor() == playerColor) {
-                    List<Position> movesForPiece = p.getValidMoves(board, from);
-                    for (Position to : movesForPiece) {
-                        if (!moveResultsInCheck(from, to, playerColor)) {
-                            allLegalMoves.add(to);
-                        }
-                    }
-                }
-            }
-        }
-        return allLegalMoves;
+    public Position getEnPassantTargetSquare() {
+        return this.enPassantTargetSquare;
     }
 }

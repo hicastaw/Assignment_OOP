@@ -1,5 +1,6 @@
 package com.ChessPTIT.model;
 
+import com.ChessPTIT.service.GameService; // <-- THÊM IMPORT NÀY
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,7 +11,8 @@ public class Bishop extends Piece {
     }
 
     @Override
-    public List<Position> getValidMoves(Board board, Position currentPosition) {
+    // THAY ĐỔI: Thêm GameService vào chữ ký phương thức
+    public List<Position> getValidMoves(Board board, Position currentPosition, GameService gameService) {
         List<Position> moves = new ArrayList<>();
         int currentRow = currentPosition.row();
         int currentCol = currentPosition.col();

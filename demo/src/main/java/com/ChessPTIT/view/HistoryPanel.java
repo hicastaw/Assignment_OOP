@@ -16,39 +16,42 @@ public class HistoryPanel extends JPanel {
     private JTextArea movesTextArea;
     private DefaultListModel<Match> listModel;
 
-    public HistoryPanel(PanelSwitcher switcher) { // Sửa constructor để nhận PanelSwitcher
+    public HistoryPanel(PanelSwitcher switcher) {
         this.matchDAO = new MatchDAO();
         this.moveDAO = new MoveDAO();
         setLayout(new BorderLayout(10, 10));
-        setBorder(new EmptyBorder(10, 10, 10, 10));
+        setBorder(new EmptyBorder(10, 10, 10, 10)); // Thêm khoảng đệm
 
-        // Nút Back
+        // Nút "Quay lại Menu"
         JButton backButton = new JButton("Quay lại Menu");
         backButton.addActionListener(e -> switcher.switchToPanel(MainFrame.MENU_PANEL));
-        add(backButton, BorderLayout.SOUTH);
 
-        // --- Panel chính ---
-        JSplitPane splitPane = new JSplitPane();
+        JPanel southPanel = new JPanel(new FlowLayout(FlowLayout.CENTER));
+        southPanel.add(backButton);
+        add(southPanel, BorderLayout.SOUTH);
+
+        // -- Panel chính được chia đôi --
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
         add(splitPane, BorderLayout.CENTER);
 
         // 1. Panel bên trái: Hiển thị danh sách các ván đấu
         listModel = new DefaultListModel<>();
         matchesList = new JList<>(listModel);
-        matchesList.setCellRenderer(new MatchListRenderer()); // Custom renderer để hiển thị đẹp hơn
+        matchesList.setCellRenderer(new MatchListRenderer()); // Dùng renderer để hiển thị đẹp hơn
         matchesList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         splitPane.setLeftComponent(new JScrollPane(matchesList));
 
         // 2. Panel bên phải: Hiển thị chi tiết các nước đi
-        movesTextArea = new JTextArea("Chọn một ván đấu để xem chi tiết.");
+        movesTextArea = new JTextArea("Chọn một ván đấu từ danh sách bên trái.");
         movesTextArea.setEditable(false);
         movesTextArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
         splitPane.setRightComponent(new JScrollPane(movesTextArea));
 
-        splitPane.setDividerLocation(300); // Điều chỉnh độ rộng ban đầu
+        splitPane.setDividerLocation(350); // Thiết lập độ rộng ban đầu cho panel trái
 
-        // 3. Thêm sự kiện khi chọn một ván đấu trong danh sách
+        // 3. Thêm sự kiện để xử lý khi người dùng chọn một ván đấu
         matchesList.addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) {
+            if (!e.getValueIsAdjusting()) { // Chỉ xử lý khi lựa chọn đã ổn định
                 Match selectedMatch = matchesList.getSelectedValue();
                 if (selectedMatch != null) {
                     displayMatchDetails(selectedMatch);
@@ -66,29 +69,35 @@ public class HistoryPanel extends JPanel {
         for (Match match : matches) {
             listModel.addElement(match);
         }
-        movesTextArea.setText("Chọn một ván đấu để xem chi tiết.");
+        movesTextArea.setText("Chọn một ván đấu từ danh sách bên trái.");
     }
 
     private void displayMatchDetails(Match match) {
         List<String> moves = moveDAO.getMovesForMatch(match.getMatchId());
         StringBuilder sb = new StringBuilder();
-        sb.append("Ván đấu ID: ").append(match.getMatchId()).append("\n");
-        sb.append(match.getPlayerWhiteName()).append(" (Trắng) vs ").append(match.getPlayerBlackName())
-                .append(" (Đen)\n");
-        sb.append("Kết quả: ").append(match.getResult()).append("\n\n");
-        sb.append("Các nước đi:\n");
+
+        sb.append(String.format("Ván đấu ID: %d\n", match.getMatchId()));
+        sb.append(String.format("%s (Trắng) vs %s (Đen)\n", match.getPlayerWhiteName(), match.getPlayerBlackName()));
+        sb.append(String.format("Kết quả: %s\n\n", match.getResult()));
+        sb.append("Lịch sử nước đi:\n");
 
         int moveNumber = 1;
+        // Lặp qua danh sách nước đi, mỗi lần lấy 2 nước (một của Trắng, một của Đen)
         for (int i = 0; i < moves.size(); i += 2) {
-            sb.append(moveNumber).append(". ").append(moves.get(i));
+            // Định dạng số thứ tự, nước đi của Trắng, và thêm một tab (\t) để căn cột
+            sb.append(String.format("%-4s %-10s", moveNumber + ".", moves.get(i)));
+
+            // Kiểm tra xem có nước đi của Đen tương ứng không
             if (i + 1 < moves.size()) {
-                sb.append("\t").append(moves.get(i + 1));
+                sb.append(moves.get(i + 1));
             }
-            sb.append("\n");
+
+            sb.append("\n"); // Xuống dòng cho cặp nước đi tiếp theo
             moveNumber++;
         }
+
         movesTextArea.setText(sb.toString());
-        movesTextArea.setCaretPosition(0); // Cuộn lên đầu
+        movesTextArea.setCaretPosition(0); // Luôn cuộn lên đầu
     }
 
     /**
@@ -101,7 +110,8 @@ public class HistoryPanel extends JPanel {
             super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
             if (value instanceof Match) {
                 Match match = (Match) value;
-                setText(String.format("ID: %d - %s vs %s", match.getMatchId(), match.getPlayerWhiteName(),
+                // Định dạng chuỗi hiển thị trên danh sách
+                setText(String.format("ID %d: %s vs %s", match.getMatchId(), match.getPlayerWhiteName(),
                         match.getPlayerBlackName()));
             }
             return this;
