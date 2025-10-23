@@ -37,7 +37,6 @@ public class Match {
         this.moves = moves;
     }
 
-    // Getters
     public int getMatchId() {
         return matchId;
     }
