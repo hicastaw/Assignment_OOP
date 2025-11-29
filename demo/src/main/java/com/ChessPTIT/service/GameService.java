@@ -9,6 +9,8 @@ import java.util.List;
 public class GameService {
 
     private Board board;
+    private Player player1;
+    private Player player2;
     private PieceColor currentPlayer;
     private List<Piece> capturedPieces;
     private List<String> moveHistory;
@@ -31,6 +33,8 @@ public class GameService {
 
     public void startNewGame(String player1Name, String player2Name) {
         board.setupBoard();
+        this.player1 = new Player(player1Name, PieceColor.WHITE);
+        this.player2 = new Player(player2Name, PieceColor.BLACK);
         this.currentPlayer = PieceColor.WHITE;
         this.capturedPieces = new ArrayList<>();
         this.moveHistory = new ArrayList<>();
@@ -262,6 +266,7 @@ public class GameService {
         if (!(piece instanceof Pawn)) {
             String pieceName = piece.getClass().getSimpleName();
             notation.append(pieceName.equals("Knight") ? "N" : pieceName.toUpperCase().charAt(0));
+            // TODO: Xử lý Disambiguation (ví dụ: Raxd1, R1xd1) nếu cần
         }
 
         // 2. Với Tốt, chỉ ghi cột xuất phát khi ăn quân
@@ -372,6 +377,10 @@ public class GameService {
      * Lấy danh sách tất cả các nước đi hợp lệ thực sự cho một quân cờ tại một vị
      * trí.
      * Phương thức này sẽ lọc ra các nước đi tự làm Vua của mình bị chiếu.
+     * 
+     * @param from Vị trí của quân cờ cần kiểm tra.
+     * @return Một danh sách các nước đi hợp lệ, trả về rỗng nếu không có quân cờ
+     *         hợp lệ tại 'from'.
      */
     public List<Position> getLegalMovesForPiece(Position from) {
         List<Position> legalMoves = new ArrayList<>();
