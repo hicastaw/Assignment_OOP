@@ -377,10 +377,6 @@ public class GameService {
      * Lấy danh sách tất cả các nước đi hợp lệ thực sự cho một quân cờ tại một vị
      * trí.
      * Phương thức này sẽ lọc ra các nước đi tự làm Vua của mình bị chiếu.
-     * 
-     * @param from Vị trí của quân cờ cần kiểm tra.
-     * @return Một danh sách các nước đi hợp lệ, trả về rỗng nếu không có quân cờ
-     *         hợp lệ tại 'from'.
      */
     public List<Position> getLegalMovesForPiece(Position from) {
         List<Position> legalMoves = new ArrayList<>();
