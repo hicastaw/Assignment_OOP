@@ -13,28 +13,22 @@ public class MainFrame extends JFrame implements PanelSwitcher {
     private JPanel mainPanel = new JPanel(cardLayout);
 
     private GameService gameService;
-    private GamePanel gamePanel; // Giữ lại tham chiếu để gọi phương thức
-    private HistoryPanel historyPanel; // Giữ lại tham chiếu để gọi phương thức
+    private GamePanel gamePanel;
+    private HistoryPanel historyPanel;
 
     public MainFrame() {
-        setTitle("Chess Game");
-
+        setTitle("Chess PTIT");
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-
         this.gameService = new GameService();
-
         MainMenuPanel mainMenuPanel = new MainMenuPanel(this, this.gameService);
         this.gamePanel = new GamePanel(this, this.gameService);
         this.historyPanel = new HistoryPanel(this);
-
         mainPanel.add(mainMenuPanel, MENU_PANEL);
         mainPanel.add(gamePanel, GAME_PANEL);
         mainPanel.add(historyPanel, HISTORY_PANEL);
-
         add(mainPanel);
         pack();
         setLocationRelativeTo(null);
-
     }
 
     @Override
@@ -42,11 +36,10 @@ public class MainFrame extends JFrame implements PanelSwitcher {
         cardLayout.show(mainPanel, panelName);
 
         if (panelName.equals(GAME_PANEL)) {
-            gamePanel.resetGamePanel(); // Reset panel game trước khi vẽ lại
+            gamePanel.resetGamePanel();
             gamePanel.redrawBoard();
             gamePanel.updateStatus();
         }
-        // KHI CHUYỂN SANG MÀN HÌNH LỊCH SỬ, HÃY TẢI DỮ LIỆU MỚI
         if (panelName.equals(HISTORY_PANEL)) {
             historyPanel.loadAndDisplayHistory();
         }

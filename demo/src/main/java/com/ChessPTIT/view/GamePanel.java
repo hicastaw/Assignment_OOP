@@ -73,7 +73,7 @@ public class GamePanel extends JPanel {
         add(centerWrapperPanel, BorderLayout.CENTER);
 
         // 3. Captured Panels (hai bên)
-        Dimension capturedPanelSize = new Dimension(100, 0);
+        Dimension capturedPanelSize = new Dimension(175, 0);
         whiteCapturedPanel = new JPanel(new GridLayout(8, 2, 5, 5));
         whiteCapturedPanel.setPreferredSize(capturedPanelSize);
         whiteCapturedPanel.setBorder(BorderFactory.createTitledBorder("Quân Đen bị ăn"));

@@ -20,9 +20,8 @@ public class HistoryPanel extends JPanel {
         this.matchDAO = new MatchDAO();
         this.moveDAO = new MoveDAO();
         setLayout(new BorderLayout(10, 10));
-        setBorder(new EmptyBorder(10, 10, 10, 10)); // Thêm khoảng đệm
+        setBorder(new EmptyBorder(10, 10, 10, 10));
 
-        // Nút "Quay lại Menu"
         JButton backButton = new JButton("Quay lại Menu");
         backButton.addActionListener(e -> switcher.switchToPanel(MainFrame.MENU_PANEL));
 
@@ -30,29 +29,24 @@ public class HistoryPanel extends JPanel {
         southPanel.add(backButton);
         add(southPanel, BorderLayout.SOUTH);
 
-        // -- Panel chính được chia đôi --
         JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT);
         add(splitPane, BorderLayout.CENTER);
 
-        // 1. Panel bên trái: Hiển thị danh sách các ván đấu
         listModel = new DefaultListModel<>();
         matchesList = new JList<>(listModel);
-        matchesList.setCellRenderer(new MatchListRenderer()); // Dùng renderer để hiển thị đẹp hơn
+        matchesList.setCellRenderer(new MatchListRenderer());
         matchesList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
         splitPane.setLeftComponent(new JScrollPane(matchesList));
 
-        // 2. Panel bên phải: Hiển thị chi tiết các nước đi
         movesTextArea = new JTextArea("Chọn một ván đấu từ danh sách bên trái.");
         movesTextArea.setEditable(false);
-        // Đảm bảo sử dụng font Monospaced để căn chỉnh hoạt động đúng
         movesTextArea.setFont(new Font("Monospaced", Font.PLAIN, 14));
         splitPane.setRightComponent(new JScrollPane(movesTextArea));
 
-        splitPane.setDividerLocation(350); // Thiết lập độ rộng ban đầu cho panel trái
+        splitPane.setDividerLocation(350);
 
-        // 3. Thêm sự kiện để xử lý khi người dùng chọn một ván đấu
         matchesList.addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) { // Chỉ xử lý khi lựa chọn đã ổn định
+            if (!e.getValueIsAdjusting()) {
                 Match selectedMatch = matchesList.getSelectedValue();
                 if (selectedMatch != null) {
                     displayMatchDetails(selectedMatch);
